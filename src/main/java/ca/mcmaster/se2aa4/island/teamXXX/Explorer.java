@@ -21,12 +21,22 @@ public class Explorer implements IExplorerRaid {
         Integer batteryLevel = info.getInt("budget");
         logger.info("The drone is facing {}", direction);
         logger.info("Battery level is {}", batteryLevel);
+        //pass the info to drone 
     }
 
     @Override
     public String takeDecision() {
         JSONObject decision = new JSONObject();
-        decision.put("action", "stop"); // we stop the exploration immediately
+         //Starting position is (1,1)
+        //move down one grid until the radar echos "Gound",
+        //then fly forward until reaches ground cell (photo scan),
+
+
+        //while above island
+        //grid scan every cell if it's a emergency site / a creek 
+        // once detected both, stop the mission 
+
+        //decision.put("action", "stop");  we stop the exploration immediately
         logger.info("** Decision: {}",decision.toString());
         return decision.toString();
     }
@@ -41,6 +51,8 @@ public class Explorer implements IExplorerRaid {
         logger.info("The status of the drone is {}", status);
         JSONObject extraInfo = response.getJSONObject("extras");
         logger.info("Additional information received: {}", extraInfo);
+        //pass the info to drone 
+        logger.info(response);
     }
 
     @Override
