@@ -1,4 +1,4 @@
-package ca.mcmaster.se2aa4.island.teamXXX;
+package ca.mcmaster.se2aa4.island.team42;
 
 class Radar {
     public String RadarScan(String Direction) {

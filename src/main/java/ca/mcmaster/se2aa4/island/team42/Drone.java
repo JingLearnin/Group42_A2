@@ -1,4 +1,4 @@
-package ca.mcmaster.se2aa4.island.teamXXX;
+package ca.mcmaster.se2aa4.island.team42;
 
 class Drone {
     private int batteryLevel;
@@ -6,6 +6,11 @@ class Drone {
     private final Radar radar; // Composition: Drone has a Radar
     private final Photo photo; // Composition: Drone has a photo scanner
 
+    /**
+     *
+     * @param batteryLevel
+     * @param heading Which direction the drone is facing
+     */
     public Drone(int batteryLevel, String heading) {
         this.batteryLevel = batteryLevel;
         this.heading = heading;
