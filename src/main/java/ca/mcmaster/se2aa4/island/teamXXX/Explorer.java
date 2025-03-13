@@ -11,53 +11,48 @@ import org.json.JSONTokener;
 public class Explorer implements IExplorerRaid {
 
     private final Logger logger = LogManager.getLogger();
+    private DroneController controller;
 
     @Override
-    public void initialize(String s) {
-        logger.info("** Initializing the Exploration Command Center");
-        JSONObject info = new JSONObject(new JSONTokener(new StringReader(s)));
-        logger.info("** Initialization info:\n {}",info.toString(2));
-        String direction = info.getString("heading");
-        Integer batteryLevel = info.getInt("budget");
-        logger.info("The drone is facing {}", direction);
-        logger.info("Battery level is {}", batteryLevel);
-        //pass the info to drone 
+    public void initialize(String input) {
+        logger.info(">> Initializing Exploration System...");
+        JSONObject data = new JSONObject(new JSONTokener(new StringReader(input)));
+        logger.info(">> Initialization Data:\n{}", data.toString(2));
+
+        String startingDirection = data.getString("heading");
+        int batteryLevel = data.getInt("budget");
+
+        controller = new DroneController(startingDirection, batteryLevel);
+        logger.info(">> Initial Direction: {}", startingDirection);
+        logger.info(">> Battery Level: {}", batteryLevel);
     }
 
     @Override
     public String takeDecision() {
-        JSONObject decision = new JSONObject();
-         //Starting position is (1,1)
-        //move down one grid until the radar echos "Gound",
-        //then fly forward until reaches ground cell (photo scan),
-
-
-        //while above island
-        //grid scan every cell if it's a emergency site / a creek 
-        // once detected both, stop the mission 
-
-        //decision.put("action", "stop");  we stop the exploration immediately
-        logger.info("** Decision: {}",decision.toString());
-        return decision.toString();
+        JSONObject nextMove = controller.decide(); // Calls `decide()` as expected
+        logger.info(">> Next Move: {}", nextMove.toString());
+        return nextMove.toString();
     }
 
     @Override
-    public void acknowledgeResults(String s) {
-        JSONObject response = new JSONObject(new JSONTokener(new StringReader(s)));
-        logger.info("** Response received:\n"+response.toString(2));
-        Integer cost = response.getInt("cost");
-        logger.info("The cost of the action was {}", cost);
+    public void acknowledgeResults(String feedback) {
+        JSONObject response = new JSONObject(new JSONTokener(new StringReader(feedback)));
+        logger.info(">> Processing Response:\n{}", response.toString(2));
+
+        int cost = response.getInt("cost");
+        logger.info(">> Energy Used: {}", cost);
+
         String status = response.getString("status");
-        logger.info("The status of the drone is {}", status);
-        JSONObject extraInfo = response.getJSONObject("extras");
-        logger.info("Additional information received: {}", extraInfo);
-        //pass the info to drone 
-        logger.info(response);
+        logger.info(">> Drone Status: {}", status);
+
+        JSONObject extraData = response.getJSONObject("extras");
+        logger.info(">> Additional Data: {}", extraData);
+
+        controller.react(response); // Calls `react()` which exists in `DroneController`
     }
 
     @Override
     public String deliverFinalReport() {
-        return "no creek found";
+        return controller.landFound ? "Island found during exploration." : "Exploration completed without locating the island.";
     }
-
 }
