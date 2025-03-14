@@ -9,6 +9,7 @@ import java.util.LinkedList;
 public class DroneController {
 
     private final Logger logger = LogManager.getLogger();
+    private Direction directionHandler;
 
     private String currentHeading;
     private int batteryLevel;
@@ -25,6 +26,7 @@ public class DroneController {
         this.currentHeading = initialHeading;
         this.batteryLevel = initialBatteryLevel;
         this.moveQueue = new LinkedList<>();
+        this.directionHandler = new Direction(initialHeading); // Fixed reference
     }
 
     public JSONObject decide() {
@@ -43,8 +45,8 @@ public class DroneController {
 
     private void echoAll() {
         moveQueue.offer(createEcho(currentHeading));
-        moveQueue.offer(createEcho(getLeftDirection()));
-        moveQueue.offer(createEcho(getRightDirection()));
+        moveQueue.offer(createEcho(directionHandler.getLeftDirection()));
+        moveQueue.offer(createEcho(directionHandler.getRightDirection()));
     }
 
     public void react(JSONObject response) {
@@ -72,7 +74,7 @@ public class DroneController {
                 landFound = true;
             } else if (found.equals("OUT_OF_RANGE")) {
                 boolean allOutOfRange = true;
-                for (String direction : new String[]{currentHeading, getLeftDirection(), getRightDirection()}) {
+                for (String direction : new String[]{currentHeading, directionHandler.getLeftDirection(), directionHandler.getRightDirection()}) {
                     moveQueue.offer(createEcho(direction));
                     lastEchoDirection = direction;
                 }
@@ -117,25 +119,5 @@ public class DroneController {
         params.put("direction", direction);
         heading.put("parameters", params);
         return heading;
-    }
-
-    private String getLeftDirection() {
-        switch (currentHeading) {
-            case "N": return "W";
-            case "S": return "E";
-            case "E": return "N";
-            case "W": return "S";
-            default: return currentHeading;
-        }
-    }
-
-    private String getRightDirection() {
-        switch (currentHeading) {
-            case "N": return "E";
-            case "S": return "W";
-            case "E": return "S";
-            case "W": return "N";
-            default: return currentHeading;
-        }
     }
 }
