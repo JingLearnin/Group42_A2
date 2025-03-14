@@ -10,80 +10,132 @@ public class DroneController {
 
     private final Logger logger = LogManager.getLogger();
 
-    String currentHeading;
-    int batteryLevel;
-    Queue<JSONObject> moveQueue;
-    String previousAction;
-    Boolean landFound = false;
+    private String currentHeading;
+    private int batteryLevel;
+    private Queue<JSONObject> moveQueue;
+    private String previousAction;
+    public boolean landFound = false;
+    public boolean isOnPath = false;
+    public boolean atIsland = false;
+    private String orientation = "";
+    private boolean rotate = false;
+    private String lastEchoDirection = "";
 
     public DroneController(String initialHeading, int initialBatteryLevel) {
-
-        // Set initial heading and battery level for the drone
         this.currentHeading = initialHeading;
         this.batteryLevel = initialBatteryLevel;
-
-        // Initialize a move queue for the drone
         this.moveQueue = new LinkedList<>();
     }
 
-    // Decides the next moves for the drone
     public JSONObject decide() {
         JSONObject currentAction = new JSONObject();
+
         if (!moveQueue.isEmpty()) {
-            // Take a move from the queue
             currentAction = moveQueue.poll();
         } else {
-            // Otherwise, echo, scan, and fly
-            currentAction.put("action", "echo");
-            JSONObject parameters = new JSONObject();
-            parameters.put("direction", "S");
-            currentAction.put("parameters", parameters);
-
-            JSONObject scan = new JSONObject();
-            scan.put("action", "scan");
-            moveQueue.offer(scan);
-
-            JSONObject fly = new JSONObject();
-            fly.put("action", "fly");
-            moveQueue.offer(fly);
+            echoAll();
+            currentAction = moveQueue.poll();
         }
+
         this.previousAction = currentAction.getString("action");
         return currentAction;
     }
 
-    // Reacts to information returned by the game engine
+    private void echoAll() {
+        moveQueue.offer(createEcho(currentHeading));
+        moveQueue.offer(createEcho(getLeftDirection()));
+        moveQueue.offer(createEcho(getRightDirection()));
+    }
+
     public void react(JSONObject response) {
-        // Update battery level
         int cost = response.getInt("cost");
         this.batteryLevel -= cost;
 
         if (previousAction.equals("echo")) {
-
-            // When in front of island, scan and stop
             int range = response.getJSONObject("extras").getInt("range");
-            if (range == 0) {
-                JSONObject scan = new JSONObject();
-                scan.put("action", "scan");
-                moveQueue.offer(scan);
-                JSONObject stop = new JSONObject();
-                stop.put("action", "stop");
-                moveQueue.offer(stop);
-            }
-
-            // Change heading when the island is found
             String found = response.getJSONObject("extras").getString("found");
-            if (!found.equals("OUT_OF_RANGE") && !landFound) {
-                JSONObject scan = new JSONObject();
-                scan.put("action", "scan");
-                moveQueue.offer(scan);
-                JSONObject changeHeading = new JSONObject();
-                changeHeading.put("action", "heading");
-                JSONObject parameters = new JSONObject();
-                parameters.put("direction", "S");
-                changeHeading.put("parameters", parameters);
-                moveQueue.offer(changeHeading);
+
+            if (found.equals("GROUND")) {
+                moveQueue.clear();
+                if (range == 0) {
+                    moveQueue.offer(createStop());
+                    return;
+                }
+                if (!currentHeading.equals(lastEchoDirection)) {
+                    moveQueue.offer(createHeading(lastEchoDirection));
+                    currentHeading = lastEchoDirection;
+                }
+                for (int i = 0; i < range; i++) {
+                    moveQueue.offer(createFly());
+                }
+                moveQueue.offer(createScan());
                 landFound = true;
+            } else if (found.equals("OUT_OF_RANGE")) {
+                boolean allOutOfRange = true;
+                for (String direction : new String[]{currentHeading, getLeftDirection(), getRightDirection()}) {
+                    moveQueue.offer(createEcho(direction));
+                    lastEchoDirection = direction;
+                }
+                if (allOutOfRange) {
+                    moveQueue.offer(createFly());
+                }
             }
+        }
+    }
+
+    private JSONObject createEcho(String direction) {
+        JSONObject echo = new JSONObject();
+        echo.put("action", "echo");
+        JSONObject params = new JSONObject();
+        params.put("direction", direction);
+        echo.put("parameters", params);
+        return echo;
+    }
+
+    private JSONObject createScan() {
+        JSONObject scan = new JSONObject();
+        scan.put("action", "scan");
+        return scan;
+    }
+
+    private JSONObject createFly() {
+        JSONObject fly = new JSONObject();
+        fly.put("action", "fly");
+        return fly;
+    }
+
+    private JSONObject createStop() {
+        JSONObject stop = new JSONObject();
+        stop.put("action", "stop");
+        return stop;
+    }
+
+    private JSONObject createHeading(String direction) {
+        JSONObject heading = new JSONObject();
+        heading.put("action", "heading");
+        JSONObject params = new JSONObject();
+        params.put("direction", direction);
+        heading.put("parameters", params);
+        return heading;
+    }
+
+    private String getLeftDirection() {
+        switch (currentHeading) {
+            case "N": return "W";
+            case "S": return "E";
+            case "E": return "N";
+            case "W": return "S";
+            default: return currentHeading;
+        }
+    }
+
+    private String getRightDirection() {
+        switch (currentHeading) {
+            case "N": return "E";
+            case "S": return "W";
+            case "E": return "S";
+            case "W": return "N";
+            default: return currentHeading;
         }
     }
 }
