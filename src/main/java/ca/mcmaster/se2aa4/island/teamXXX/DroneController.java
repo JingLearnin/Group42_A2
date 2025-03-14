@@ -9,9 +9,9 @@ import java.util.LinkedList;
 public class DroneController {
 
     private final Logger logger = LogManager.getLogger();
-    private Direction directionHandler;
-    private Coordinate position;
+    
     private ActionHandler actionHandler;
+    private Direction directionHandler;
 
     private String currentHeading;
     private int batteryLevel;
@@ -20,17 +20,14 @@ public class DroneController {
     public boolean landFound = false;
     public boolean isOnPath = false;
     public boolean atIsland = false;
-    private String orientation = "";
-    private boolean rotate = false;
     private String lastEchoDirection = "";
 
     public DroneController(String initialHeading, int initialBatteryLevel) {
         this.currentHeading = initialHeading;
         this.batteryLevel = initialBatteryLevel;
         this.moveQueue = new LinkedList<>();
-        this.directionHandler = new Direction(initialHeading);
-        this.position = new Coordinate(0, 0); // Initialize position at (0,0)
-        this.actionHandler = new ActionHandler();
+        this.directionHandler = new Direction(initialHeading, new Coordinate(0, 0));
+        this.actionHandler = new ActionHandler(directionHandler);
     }
 
     public JSONObject decide() {
@@ -48,7 +45,7 @@ public class DroneController {
     }
 
     public void react(JSONObject response) {
-        logger.info("Current Position: (" + position.getX() + ", " + position.getY() + ")");
+        logger.info("Current Position: (" + directionHandler.getCurrentHeading() + ") X: " + directionHandler.getPosition().getX() + ", Y: " + directionHandler.getPosition().getY());
         int cost = response.getInt("cost");
         this.batteryLevel -= cost;
 
@@ -64,11 +61,11 @@ public class DroneController {
                 }
                 if (!currentHeading.equals(lastEchoDirection)) {
                     moveQueue.offer(actionHandler.createHeading(lastEchoDirection));
+                    directionHandler.setHeading(lastEchoDirection); // Updates position when heading changes
                     currentHeading = lastEchoDirection;
                 }
                 for (int i = 0; i < range; i++) {
                     moveQueue.offer(actionHandler.createFly());
-                    updatePosition();
                 }
                 moveQueue.offer(actionHandler.createScan());
                 landFound = true;
@@ -80,18 +77,8 @@ public class DroneController {
                 }
                 if (allOutOfRange) {
                     moveQueue.offer(actionHandler.createFly());
-                    updatePosition();
                 }
             }
-        }
-    }
-
-    private void updatePosition() {
-        switch (currentHeading) {
-            case "N": position.changeY(1); break;
-            case "S": position.changeY(-1); break;
-            case "E": position.changeX(1); break;
-            case "W": position.changeX(-1); break;
         }
     }
 }

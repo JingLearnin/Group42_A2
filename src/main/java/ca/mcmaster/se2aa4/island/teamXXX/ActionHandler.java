@@ -5,6 +5,12 @@ import java.util.Queue;
 
 public class ActionHandler {
 
+    private Direction directionHandler;
+
+    public ActionHandler(Direction directionHandler) {
+        this.directionHandler = directionHandler;
+    }
+
     public void echoAll(Queue<JSONObject> moveQueue, String currentHeading, Direction directionHandler) {
         moveQueue.offer(createEcho(currentHeading));
         moveQueue.offer(createEcho(directionHandler.getLeftDirection()));
@@ -29,6 +35,7 @@ public class ActionHandler {
     public JSONObject createFly() {
         JSONObject fly = new JSONObject();
         fly.put("action", "fly");
+        directionHandler.updatePosition(); // Now updates position automatically
         return fly;
     }
 
@@ -44,6 +51,8 @@ public class ActionHandler {
         JSONObject params = new JSONObject();
         params.put("direction", direction);
         heading.put("parameters", params);
+        
+        directionHandler.setHeading(direction); // Now correctly updates heading and position
         return heading;
     }
 }

@@ -2,9 +2,11 @@ package ca.mcmaster.se2aa4.island.teamXXX;
 
 public class Direction {
     private String currentHeading;
+    private Coordinate position;
 
-    public Direction(String initialHeading) {
+    public Direction(String initialHeading, Coordinate initialPosition) {
         this.currentHeading = initialHeading;
+        this.position = initialPosition;
     }
 
     public String getLeftDirection() {
@@ -29,9 +31,23 @@ public class Direction {
 
     public void setHeading(String newHeading) {
         this.currentHeading = newHeading;
+        updatePosition();
     }
 
     public String getCurrentHeading() {
         return this.currentHeading;
+    }
+
+    public Coordinate getPosition() {
+        return this.position;
+    }
+
+    public void updatePosition() {
+        switch (currentHeading) {
+            case "N": position.changeY(1); break;
+            case "S": position.changeY(-1); break;
+            case "E": position.changeX(1); break;
+            case "W": position.changeX(-1); break;
+        }
     }
 }
