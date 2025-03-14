@@ -35,7 +35,7 @@ public class ActionHandler {
     public JSONObject createFly() {
         JSONObject fly = new JSONObject();
         fly.put("action", "fly");
-        directionHandler.updatePosition(); // Now updates position automatically
+        directionHandler.updatePosition();
         return fly;
     }
 
@@ -52,7 +52,7 @@ public class ActionHandler {
         params.put("direction", direction);
         heading.put("parameters", params);
         
-        directionHandler.setHeading(direction); // Now correctly updates heading and position
+        directionHandler.setHeading(direction);
         return heading;
     }
 }

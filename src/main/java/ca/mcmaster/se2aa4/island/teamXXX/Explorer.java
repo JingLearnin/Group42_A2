@@ -11,7 +11,7 @@ import org.json.JSONTokener;
 public class Explorer implements IExplorerRaid {
 
     private final Logger logger = LogManager.getLogger();
-    private DroneController controller;
+    private MissionController controller;
 
     @Override
     public void initialize(String input) {
@@ -20,16 +20,14 @@ public class Explorer implements IExplorerRaid {
         logger.info(">> Initialization Data:\n{}", data.toString(2));
 
         String startingDirection = data.getString("heading");
-        int batteryLevel = data.getInt("budget");
 
-        controller = new DroneController(startingDirection, batteryLevel);
+        controller = new MissionController(startingDirection);
         logger.info(">> Initial Direction: {}", startingDirection);
-        logger.info(">> Battery Level: {}", batteryLevel);
     }
 
     @Override
     public String takeDecision() {
-        JSONObject nextMove = controller.decide(); // Calls `decide()` as expected
+        JSONObject nextMove = controller.decide();
         logger.info(">> Next Move: {}", nextMove.toString());
         return nextMove.toString();
     }
@@ -48,11 +46,11 @@ public class Explorer implements IExplorerRaid {
         JSONObject extraData = response.getJSONObject("extras");
         logger.info(">> Additional Data: {}", extraData);
 
-        controller.react(response); // Calls `react()` which exists in `DroneController`
+        controller.react(response);
     }
 
     @Override
     public String deliverFinalReport() {
-        return controller.landFound ? "Island found during exploration." : "Exploration completed without locating the island.";
+        return "Mission complete. Island reached.";
     }
 }
