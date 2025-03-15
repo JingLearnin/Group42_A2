@@ -17,13 +17,11 @@ public class GoIslandStage implements Stages {
     private int batteryLevel;
     private String previousAction;
     private String lastEchoDirection = "";
-    public boolean landFound = false;
-    public boolean isOnPath = false;
-    public boolean atIsland = false;
+    private boolean transitionToSearching = false;
 
     public GoIslandStage(String initialHeading) {
         this.currentHeading = initialHeading;
-        this.batteryLevel = 10000; // Set a default battery level, this should be adjusted dynamically
+        this.batteryLevel = 10000;
         this.moveQueue = new LinkedList<>();
         this.directionHandler = new Direction(initialHeading, new Coordinate(0, 0));
         this.actionHandler = new ActionHandler(directionHandler);
@@ -31,6 +29,10 @@ public class GoIslandStage implements Stages {
 
     @Override
     public JSONObject decide() {
+        if (transitionToSearching) {
+            return null; // Signal transition to the next stage
+        }
+
         JSONObject currentAction = new JSONObject();
 
         if (!moveQueue.isEmpty()) {
@@ -58,7 +60,7 @@ public class GoIslandStage implements Stages {
             if (found.equals("GROUND")) {
                 moveQueue.clear();
                 if (range == 0) {
-                    moveQueue.offer(actionHandler.createStop());
+                    transitionToSearching = true;
                     return;
                 }
                 if (!currentHeading.equals(lastEchoDirection)) {
@@ -70,7 +72,6 @@ public class GoIslandStage implements Stages {
                     moveQueue.offer(actionHandler.createFly());
                 }
                 moveQueue.offer(actionHandler.createScan());
-                landFound = true;
             } else if (found.equals("OUT_OF_RANGE")) {
                 for (String direction : new String[]{currentHeading, directionHandler.getLeftDirection(), directionHandler.getRightDirection()}) {
                     moveQueue.offer(actionHandler.createEcho(direction));
@@ -79,5 +80,17 @@ public class GoIslandStage implements Stages {
                 moveQueue.offer(actionHandler.createFly());
             }
         }
+    }
+
+    public boolean isTransitionToSearching() {
+        return transitionToSearching;
+    }
+
+    public Direction getDirectionHandler() {
+        return directionHandler;
+    }
+
+    public ActionHandler getActionHandler() {
+        return actionHandler;
     }
 }

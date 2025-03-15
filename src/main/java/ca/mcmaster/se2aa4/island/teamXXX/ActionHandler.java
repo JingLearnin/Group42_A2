@@ -55,4 +55,16 @@ public class ActionHandler {
         directionHandler.setHeading(direction);
         return heading;
     }
+
+    public JSONObject turnLeft() {
+        String newDirection = directionHandler.getLeftDirection();
+        directionHandler.setHeading(newDirection);
+        return createHeading(newDirection);
+    }
+
+    public JSONObject turnRight() {
+        String newDirection = directionHandler.getRightDirection();
+        directionHandler.setHeading(newDirection);
+        return createHeading(newDirection);
+    }
 }
