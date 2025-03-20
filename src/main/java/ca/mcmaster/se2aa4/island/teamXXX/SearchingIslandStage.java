@@ -2,177 +2,154 @@ package ca.mcmaster.se2aa4.island.teamXXX;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
-import java.util.LinkedList;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
 
 public class SearchingIslandStage implements Stages {
 
     private final Logger logger = LogManager.getLogger();
+    private final ActionHandler actionHandler;
+    private final Direction directionHandler;
+    private final Queue<JSONObject> moveQueue;
+    private final List<Coordinate> creeksFound;
 
-    private ActionHandler actionHandler;
-    private Direction directionHandler;
-    private Queue<JSONObject> moveQueue;
+    private boolean foundOcean = false;
+    private int groundRange = 0;
 
-    private boolean reachedEnd = false;
-    private SearchState currentState = SearchState.ECHO_SURVEY;
-    private boolean finalScan = false;
-    private int groundRange;
-
-    private List<Coordinate> creeksFound;
-    private List<Coordinate> emergencySites;
-    private boolean movingRight = true; // Determines scan direction
-
-    public enum SearchState {
-        ECHO_SURVEY,
-        MOVE_FORWARD,
-        SCAN_AREA,
-        CHANGE_DIRECTION
+    private enum SearchState {
+        INITIAL_SCAN, MOVE_FORWARD, TORF, FLIP, CROSSING, STOP
     }
+
+    private SearchState currentState = SearchState.INITIAL_SCAN;
 
     public SearchingIslandStage(Direction directionHandler, ActionHandler actionHandler) {
         this.directionHandler = directionHandler;
         this.actionHandler = actionHandler;
-
         this.moveQueue = new LinkedList<>();
         this.creeksFound = new ArrayList<>();
-        this.emergencySites = new ArrayList<>();
 
-        logger.info("Transitioned to SearchingIslandStage - Beginning structured grid search.");
+        logger.info("Transitioning to SearchingIslandStage - Beginning structured search.");
     }
 
     @Override
     public JSONObject decide() {
-        // If we already have commands enqueued, just return the next one
         if (!moveQueue.isEmpty()) {
             return moveQueue.poll();
-        } else {
-            return executeSearchPattern();
         }
-    }
 
-    /**
-     * Based on the current state, enqueue the appropriate action(s)
-     * in moveQueue, then return the first command.
-     */
-    private JSONObject executeSearchPattern() {
         switch (currentState) {
-            case ECHO_SURVEY:
-                logger.info("[ECHO_SURVEY] Performing echoAll before movement...");
-                actionHandler.echoAll(moveQueue, directionHandler.getCurrentHeading(), directionHandler);
-                currentState = SearchState.MOVE_FORWARD; // Move forward after the echo
-                break;
-
-            case MOVE_FORWARD:
-                logger.info("[MOVE_FORWARD] Moving forward in structured search pattern...");
-                moveQueue.offer(actionHandler.createFly());
-
-                // After moving, transition to scanning
-                currentState = SearchState.SCAN_AREA;
-                break;
-
-            case SCAN_AREA:
-                logger.info("[SCAN_AREA] Scanning current position...");
+            case INITIAL_SCAN:
+                logger.info("[INITIAL_SCAN] Scanning ground...");
                 moveQueue.offer(actionHandler.createScan());
                 break;
 
-            case CHANGE_DIRECTION:
-                logger.info("[CHANGE_DIRECTION] Turning for next search line...");
-                if (movingRight) {
-                    moveQueue.offer(actionHandler.turnRight());
+            case MOVE_FORWARD:
+                logger.info("[MOVE_FORWARD] No ocean found, moving forward and scanning again...");
+                moveQueue.offer(actionHandler.createFly());
+                moveQueue.offer(actionHandler.createScan()); // Scan again after moving forward
+                break;
+
+            case TORF:
+                logger.info("[TORF] Ocean detected, echoing in forward direction...");
+                moveQueue.offer(actionHandler.createEcho(directionHandler.getCurrentHeading()));  // 🔥 Echo in the actual forward direction
+                break;
+
+            case FLIP:
+                logger.info("[FLIP] About to flip. Stopping the mission.");
+                currentState = SearchState.STOP;
+                break;
+
+            case CROSSING:
+                if (groundRange > 0) {
+                    logger.info("[CROSSING] Flying forward " + groundRange + " times...");
+                    for (int i = 0; i < groundRange; i++) {
+                        moveQueue.offer(actionHandler.createFly());
+                    }
+                    currentState = SearchState.TORF; // Continue checking once crossed
                 } else {
-                    moveQueue.offer(actionHandler.turnLeft());
+                    logger.info("[CROSSING] Ground range is 0, continuing forward and scanning.");
+                    currentState = SearchState.MOVE_FORWARD;  // 🔥 FIXED: Instead of flipping, continue scanning and moving
                 }
-                movingRight = !movingRight; // Flip direction
-                currentState = SearchState.MOVE_FORWARD; // Resume movement after turn
+                break;
+
+            case STOP:
+                logger.info("[STOP] Mission complete. Stopping...");
+                moveQueue.offer(actionHandler.createStop());
                 break;
 
             default:
                 throw new IllegalStateException("Undefined state: " + currentState);
         }
 
-        // Return first enqueued action
         return moveQueue.poll();
     }
 
     @Override
     public void react(JSONObject response) {
-        // Logging energy use
         int cost = response.getInt("cost");
         logger.info("Energy used: " + cost);
 
         JSONObject extras = response.getJSONObject("extras");
 
-        // Extract response safely
-        this.groundRange = extras.has("range") ? extras.getInt("range") : 0;
-        String found = extras.has("found") ? extras.getString("found") : "UNKNOWN";
-
-        logger.info("Drone Response - Found: " + found + ", Range: " + groundRange);
-
         switch (currentState) {
-            case ECHO_SURVEY:
-                if ("OUT_OF_RANGE".equals(found)) {
-                    finalScan = true; // Plan final scan if needed
-                }
-                currentState = SearchState.MOVE_FORWARD; // Proceed to move
-                break;
-
+            case INITIAL_SCAN:
             case MOVE_FORWARD:
-                if (groundRange > 0) {
-                    groundRange--; 
-                    logger.info("Moving forward, remaining range: " + groundRange);
-                    currentState = SearchState.MOVE_FORWARD;
-                } else {
-                    logger.info("Reached movement limit -> Switching to SCAN_AREA");
-                    currentState = SearchState.SCAN_AREA;
-                }
-                break;
-
-            case SCAN_AREA:
-                List<String> biomes = new ArrayList<>();
                 if (extras.has("biomes")) {
-                    biomes = extras.getJSONArray("biomes")
-                                   .toList()
-                                   .stream()
-                                   .map(Object::toString)
-                                   .collect(Collectors.toList());
-                }
+                    JSONArray biomes = extras.getJSONArray("biomes");
+                    List<String> biomeList = biomes.toList().stream().map(Object::toString).collect(Collectors.toList());
 
-                if (biomes.isEmpty() && found.equals("UNKNOWN")) {
-                    // If scanning still yields nothing, switch directions
-                    logger.info("Scan yielded no useful info, changing direction.");
-                    currentState = SearchState.CHANGE_DIRECTION;
-                } else if (!biomes.contains("OCEAN")) {
-                    logger.info("No ocean detected, continuing forward.");
-                    currentState = SearchState.MOVE_FORWARD;
-                } else {
-                    logger.info("Ocean detected! Changing direction.");
-                    currentState = SearchState.CHANGE_DIRECTION;
-                }
-
-                if (extras.has("creeks")) {
-                    logger.info("Creeks found: " + extras.getJSONArray("creeks").toString());
-                    creeksFound.add(directionHandler.getPosition());
-                }
-
-                if (extras.has("sites")) {
-                    logger.info("Emergency sites found: " + extras.getJSONArray("sites").toString());
-                    emergencySites.add(directionHandler.getPosition());
+                    if (biomeList.size() == 1 && biomeList.contains("OCEAN")) {
+                        logger.info("[INITIAL_SCAN] Strict ocean detected (ONLY ocean), transitioning to TORF.");
+                        currentState = SearchState.TORF;
+                    } else {
+                        logger.info("[INITIAL_SCAN] No strict ocean detected, continuing MOVE_FORWARD.");
+                        currentState = SearchState.MOVE_FORWARD;
+                    }
                 }
                 break;
 
-            case CHANGE_DIRECTION:
-                movingRight = !movingRight;
-                logger.info("Direction changed, resuming search.");
-                currentState = SearchState.MOVE_FORWARD;
+            case TORF:
+                if (extras.has("found")) {
+                    String found = extras.getString("found");
+                    groundRange = extras.getInt("range");
+
+                    if (found.equals("OUT_OF_RANGE")) {
+                        logger.info("[TORF] Out of range detected, transitioning to FLIP.");
+                        currentState = SearchState.FLIP;
+                    } else if (found.equals("GROUND")) {
+                        if (groundRange > 0) {
+                            logger.info("[TORF] Ground detected at range " + groundRange + ", transitioning to CROSSING.");
+                            currentState = SearchState.CROSSING;
+                        } else {
+                            logger.info("[TORF] Ground detected but range is 0. 🔥 FIXED: Continuing forward and scanning instead.");
+                            currentState = SearchState.MOVE_FORWARD;  // 🔥 FIXED: Instead of flipping, continue moving forward
+                        }
+                    }
+                }
+                break;
+
+            case STOP:
+                logger.info("[STOP] Mission stopped.");
                 break;
 
             default:
                 throw new IllegalStateException("Undefined state: " + currentState);
+        }
+
+        // ✅ Handle Creek Detection
+        if (extras.has("creeks")) {
+            JSONArray creeksArray = extras.getJSONArray("creeks");
+            if (!creeksArray.isEmpty()) {
+                logger.info("[FOUND CREEK] Storing creek location...");
+                creeksFound.add(directionHandler.getPosition());  // Store current position as creek location
+                currentState = SearchState.STOP;  // Stop searching
+            }
         }
     }
 
@@ -180,26 +157,11 @@ public class SearchingIslandStage implements Stages {
      * Returns all discovered creek locations as a string.
      */
     public String getCreekLocations() {
-        StringBuilder creekLocations = new StringBuilder();
-        for (Coordinate creek : creeksFound) {
-            creekLocations.append("(")
-                          .append(creek.getX())
-                          .append(", ")
-                          .append(creek.getY())
-                          .append(") ");
+        if (creeksFound.isEmpty()) {
+            return "No creeks found.";
         }
-        return creekLocations.toString();
-    }
-
-    /**
-     * If you want to end after a certain condition, set reachedEnd = true
-     */
-    public boolean reachedEnd() {
-        return this.reachedEnd;
-    }
-
-    public String deliverFinalReport() {
-        return "Mission complete. Creeks found: " + creeksFound.size()
-               + ", Emergency Sites found: " + emergencySites.size();
+        return creeksFound.stream()
+                .map(coordinate -> "(" + coordinate.getX() + ", " + coordinate.getY() + ")")
+                .collect(Collectors.joining(", "));
     }
 }
