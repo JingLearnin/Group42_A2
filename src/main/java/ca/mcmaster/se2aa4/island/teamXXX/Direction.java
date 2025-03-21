@@ -9,6 +9,7 @@ public class Direction {
         this.position = initialPosition;
     }
 
+    // ✅ Fix: These were missing in ActionHandler
     public String getLeftDirection() {
         switch (currentHeading) {
             case "N": return "W";
