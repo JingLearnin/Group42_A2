@@ -4,8 +4,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.json.JSONArray;
 import org.json.JSONObject;
-import java.util.stream.Collectors;
+
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class SearchingIslandStage implements Stages {
 
@@ -69,14 +70,33 @@ public class SearchingIslandStage implements Stages {
                 break;
 
             case PERFORM_FLIP:
-                logger.info("[PERFORM_FLIP] Flipping 2x toward {}", flipLeft ? "LEFT" : "RIGHT");
-                for (int i = 0; i < 2; i++) {
-                    String turnDir = flipLeft
-                            ? directionHandler.getLeftDirection()
-                            : directionHandler.getRightDirection();
-                    moveQueue.offer(actionHandler.createHeading(turnDir));
-                    directionHandler.setHeading(turnDir);
+                logger.info("[PERFORM_FLIP] Executing safe flip: 3x turns, fly, and realign to 180° opposite.");
+
+                String originalHeading = directionHandler.getCurrentHeading();
+                String threeTurnDir = flipLeft
+                        ? directionHandler.getRightDirection(originalHeading)
+                        : directionHandler.getLeftDirection(originalHeading);
+
+                String oppositeHeading = directionHandler.getRightDirection(directionHandler.getRightDirection(originalHeading));
+
+                // Step 1: Turn 3x in one direction
+                for (int i = 0; i < 3; i++) {
+                    moveQueue.offer(actionHandler.createHeading(threeTurnDir));
+                    directionHandler.setHeading(threeTurnDir);
+                    // Update for next turn
+                    threeTurnDir = flipLeft
+                            ? directionHandler.getRightDirection()
+                            : directionHandler.getLeftDirection();
                 }
+
+                // Step 2: Fly forward
+                directionHandler.updatePosition();
+                moveQueue.offer(actionHandler.createFly());
+
+                // Step 3: Realign to opposite of original
+                moveQueue.offer(actionHandler.createHeading(oppositeHeading));
+                directionHandler.setHeading(oppositeHeading);
+
                 flipLeft = !flipLeft;
                 currentState = SearchState.SCAN_AREA;
                 break;
@@ -206,7 +226,7 @@ public class SearchingIslandStage implements Stages {
                     }
                 }
 
-                if (creekIDs.size() >= 5) {
+                if (creekIDs.size() >= 8) {
                     logger.info("[MISSION COMPLETE] Found 5 creeks. Listing all:");
                     for (int i = 0; i < creekIDs.size(); i++) {
                         Coordinate coord = creeksFound.get(i);

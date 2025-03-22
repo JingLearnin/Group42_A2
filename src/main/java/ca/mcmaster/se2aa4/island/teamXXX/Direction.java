@@ -9,25 +9,32 @@ public class Direction {
         this.position = initialPosition;
     }
 
-    // ✅ Fix: These were missing in ActionHandler
     public String getLeftDirection() {
-        switch (currentHeading) {
-            case "N": return "W";
-            case "S": return "E";
-            case "E": return "N";
-            case "W": return "S";
-            default: return currentHeading;
-        }
+        return getLeftDirection(currentHeading);
     }
 
     public String getRightDirection() {
-        switch (currentHeading) {
-            case "N": return "E";
-            case "S": return "W";
-            case "E": return "S";
-            case "W": return "N";
-            default: return currentHeading;
-        }
+        return getRightDirection(currentHeading);
+    }
+
+    public String getLeftDirection(String heading) {
+        return switch (heading) {
+            case "N" -> "W";
+            case "W" -> "S";
+            case "S" -> "E";
+            case "E" -> "N";
+            default -> heading;
+        };
+    }
+
+    public String getRightDirection(String heading) {
+        return switch (heading) {
+            case "N" -> "E";
+            case "E" -> "S";
+            case "S" -> "W";
+            case "W" -> "N";
+            default -> heading;
+        };
     }
 
     public void setHeading(String newHeading) {
@@ -45,10 +52,10 @@ public class Direction {
 
     public void updatePosition() {
         switch (currentHeading) {
-            case "N": position.changeY(1); break;
-            case "S": position.changeY(-1); break;
-            case "E": position.changeX(1); break;
-            case "W": position.changeX(-1); break;
+            case "N" -> position.changeY(1);
+            case "S" -> position.changeY(-1);
+            case "E" -> position.changeX(1);
+            case "W" -> position.changeX(-1);
         }
     }
 }
