@@ -1,61 +1,115 @@
 package ca.mcmaster.se2aa4.island.teamXXX;
 
-public class Direction {
-    private String currentHeading;
-    private Coordinate position;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
-    public Direction(String initialHeading, Coordinate initialPosition) {
-        this.currentHeading = initialHeading;
-        this.position = initialPosition;
-    }
 
-    public String getLeftDirection() {
-        return getLeftDirection(currentHeading);
-    }
+import java.util.Objects;
 
-    public String getRightDirection() {
-        return getRightDirection(currentHeading);
-    }
 
-    public String getLeftDirection(String heading) {
-        return switch (heading) {
-            case "N" -> "W";
-            case "W" -> "S";
-            case "S" -> "E";
-            case "E" -> "N";
-            default -> heading;
-        };
-    }
+/**
+ * Represents cardinal directions and provides directional transformation logic.
+ * 
+ * <p>Core navigation component handling heading calculations and string conversions.
+ * Used by {@code Drone} and {@code Controller} for orientation management.</p>
+ */
 
-    public String getRightDirection(String heading) {
-        return switch (heading) {
-            case "N" -> "E";
-            case "E" -> "S";
-            case "S" -> "W";
-            case "W" -> "N";
-            default -> heading;
-        };
-    }
+public enum Direction {
 
-    public void setHeading(String newHeading) {
-        this.currentHeading = newHeading;
-        updatePosition();
-    }
+    N, E, S, W;
 
-    public String getCurrentHeading() {
-        return this.currentHeading;
-    }
+    private Direction dir;
+    private final Logger logger = LogManager.getLogger();
 
-    public Coordinate getPosition() {
-        return this.position;
-    }
+    /**
+ * Converts string abbreviation to Direction (case-sensitive).
+ * 
+ * @param cur_dir  ("N"/"E"/"S"/"W")
+ * @return Direction
+ * @throws IllegalArgumentException 
+ * 
+ * @example <caption>Valid Conversion</caption>
+ * Direction east = Direction.E.StrToDir("E"); // return E
+ * 
+ * @example <caption>Invalid Input Handling</caption>
+ * Direction invalid = Direction.N.StrToDir("X"); // return null
+ */
+    public Direction StrToDir(String cur_dir) {
 
-    public void updatePosition() {
-        switch (currentHeading) {
-            case "N" -> position.changeY(1);
-            case "S" -> position.changeY(-1);
-            case "E" -> position.changeX(1);
-            case "W" -> position.changeX(-1);
+        try {
+
+            if (Objects.equals(cur_dir, "E")) {
+                return E;
+            } else if (Objects.equals(cur_dir, "N")) {
+                return N;
+            } else if (Objects.equals(cur_dir, "S")) {
+                return S;
+            } else if (Objects.equals(cur_dir, "W")) {
+                return W;
+            }
+        } catch (Exception e) {
+                logger.info("No valid direction was inputted.");
         }
+        return dir;
+    }
+
+    /**
+ * Returns uppercase letter representation of current direction.
+ * 
+ * 
+ * @return "N", "E", "S", or "W"
+ */
+    public String DirToStr() {
+
+        try {
+
+            switch (this) {
+                case N -> {
+                    return "N";
+                }
+                case E -> {
+                    return "E";
+                }
+                case S -> {
+                    return "S";
+                }
+                case W -> {
+                    return "W";
+                }
+            }
+        } catch (Exception e) {
+            logger.info("Something went wrong.");
+        }
+        return "STOP";
+    }
+
+    /**
+ * Calculates next heading after 90-degree clockwise rotation.
+ * 
+ * @return New direction without modifying current instance
+ */
+    public Direction turnR() {
+        switch (this) {
+            case N -> this.dir = E;
+            case E -> this.dir = S;
+            case S -> this.dir = W;
+            case W -> this.dir = N;
+        }
+        return this.dir;
+    }
+
+    /**
+ * Calculates next heading after 90-degree counter-clockwise rotation.
+ * 
+ * @return New direction without modifying current instance
+ */
+    public Direction turnL() {
+        switch (this) {
+            case N -> this.dir = W;
+            case E -> this.dir = N;
+            case S -> this.dir = E;
+            case W -> this.dir = S;
+        }
+        return this.dir;
     }
 }
