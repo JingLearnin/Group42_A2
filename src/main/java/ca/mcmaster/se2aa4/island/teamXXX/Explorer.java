@@ -1,17 +1,32 @@
 package ca.mcmaster.se2aa4.island.teamXXX;
 
 import java.io.StringReader;
+import java.util.Objects;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import eu.ace_design.island.bot.IExplorerRaid;
+import ca.mcmaster.se2aa4.island.teamXXX.DecisionMaker;
 import org.json.JSONObject;
 import org.json.JSONTokener;
+
 
 public class Explorer implements IExplorerRaid {
 
     private final Logger logger = LogManager.getLogger();
+    private DecisionMaker decisionMaker = new DecisionMaker();
 
+
+/**
+ * Sets up initial mission parameters. 
+ * First method called by framework.
+ * 
+ * @param s JSON configuration: {
+ *   "heading": initial_direction,
+ *   "budget": starting_battery
+ * }
+ */
     @Override
     public void initialize(String s) {
         logger.info("** Initializing the Exploration Command Center");
@@ -22,25 +37,30 @@ public class Explorer implements IExplorerRaid {
         logger.info("The drone is facing {}", direction);
         logger.info("Battery level is {}", batteryLevel);
         //pass the info to drone 
+        decisionMaker.initializeDrone(s);
+        decisionMaker.setThres();
     }
 
+/** 
+ * Generates next exploration command.
+ * Called repeatedly by framework during mission.
+ * 
+ * @return JSON command string for ACE engine
+ */
     @Override
     public String takeDecision() {
-        JSONObject decision = new JSONObject();
-         //Starting position is (1,1)
-        //move down one grid until the radar echos "Gound",
-        //then fly forward until reaches ground cell (photo scan),
-
-
-        //while above island
-        //grid scan every cell if it's a emergency site / a creek 
-        // once detected both, stop the mission 
-
-        //decision.put("action", "stop");  we stop the exploration immediately
+        JSONObject decision = decisionMaker.nextCommand();
         logger.info("** Decision: {}",decision.toString());
         return decision.toString();
     }
-
+/**
+ * Processes action outcomes from previous command.
+ * 
+ * @param s JSON response containing:
+ *   - "cost": action energy expenditure
+ *   - "status": operation success/failure
+ *   - "extras": sensor data payload
+ */
     @Override
     public void acknowledgeResults(String s) {
         JSONObject response = new JSONObject(new JSONTokener(new StringReader(s)));
@@ -52,12 +72,23 @@ public class Explorer implements IExplorerRaid {
         JSONObject extraInfo = response.getJSONObject("extras");
         logger.info("Additional information received: {}", extraInfo);
         //pass the info to drone 
+        decisionMaker.refreshDrone(s); 
         logger.info(response);
     }
 
+/**
+ * Final mission output after exploration completes.
+ * 
+ * @return Identified creek ID or "no creek found"
+ */
     @Override
     public String deliverFinalReport() {
-        return "no creek found";
+        String result = decisionMaker.CreekFound();
+        logger.info("This is the creek/inlet to be returned: " + result);
+        if (Objects.equals(result, "NA")) {
+            return "no creek found";
+        }
+        return result;
     }
 
 }
