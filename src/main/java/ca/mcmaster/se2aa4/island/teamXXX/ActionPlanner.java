@@ -16,7 +16,24 @@ public class ActionPlanner {
         this.controller = controller;
         this.phaseManager = new PhaseManager(drone, map);
     }
-
+/**
+ * Generates next action JSON based on mission phase and resource constraints.
+ * 
+ * <p><b>Decision Workflow:</b>
+ * <ol>
+ *   <li>Check remaining battery against STOP_BUDGET</li>
+ *   <li>Route to phase-specific handler (discovery/scanning)</li>
+ *   <li>Update drone/map state after action</li>
+ * </ol>
+ *
+ * @return Valid JSON action, or emergency stop command
+ * 
+ * @see Movement#getNextMove()
+ * @see ScanIsland#getNextMove()
+ * @example <caption>Discovery Phase</caption>
+ * // When state=DISCOVER, delegates to Movement subsystem
+ * JSONObject cmd = decisionMaker.nextCommand(); // e.g. {"action":"fly"}
+ */
     public JSONObject getNextCommand() {
         if (drone.getBudget() <= STOP_THRESHOLD) {
             return controller.CommandsToJSON(Commands.STOP);
